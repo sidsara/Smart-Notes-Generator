@@ -36,7 +36,7 @@ if callable(available_models):
 summary_model_key = st.sidebar.selectbox(
     "Summarization model",
     options=summary_model_options,
-    index=0,
+    index=summary_model_options.index("bart-ft") if "bart-ft" in summary_model_options else 0,
 )
 
 uploaded_file = st.file_uploader(

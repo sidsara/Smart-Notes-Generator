@@ -8,8 +8,12 @@ MODELS = {
     "distilbart": "sshleifer/distilbart-cnn-12-6",
 }
 
-# If a local fine-tuned model directory exists, expose it automatically.
-if os.path.isdir("finetuned-bart-samsum"):
+# If set, this can be either a local path or a Hugging Face model id.
+FT_MODEL_SOURCE = os.getenv("SMART_NOTES_FT_MODEL", "").strip()
+
+if FT_MODEL_SOURCE:
+    MODELS["bart-ft"] = FT_MODEL_SOURCE
+elif os.path.isdir("finetuned-bart-samsum"):
     MODELS["bart-ft"] = "./finetuned-bart-samsum"
 
 DEFAULT_MODEL = "bart-ft" if "bart-ft" in MODELS else "bart"
