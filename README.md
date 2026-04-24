@@ -77,7 +77,7 @@ git push -u origin main
 4. Select your repo, branch `main`, and main file `app.py`.
 5. Click **Deploy**.
 
-If deployment fails due to system packages (audio codecs), add a `packages.txt` file when needed.
+This repository already includes `packages.txt` with `ffmpeg` for Whisper/audio runtime compatibility.
 
 ## Report Assembly (Final Deliverable)
 
