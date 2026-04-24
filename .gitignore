@@ -1,0 +1,27 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual/conda environment folders
+.venv/
+venv/
+env/
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Model artifacts and large checkpoints
+*.pt
+*.bin
+*.ckpt
+*.safetensors
+
+# Logs
+*.log
