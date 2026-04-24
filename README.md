@@ -11,6 +11,10 @@ This project is built with **Python + Streamlit + openai-whisper + HuggingFace T
 ## Demo Interface
 
 The Streamlit app displays transcript and summary side by side.
+You can select models from the sidebar:
+
+- Whisper ASR size: `tiny`, `base`, `small`, `medium`, `large`
+- Summarization model: `bart`, `distilbart` (and `bart-ft` if a local fine-tuned folder exists)
 
 Add your screenshot here after your first run:
 
@@ -24,6 +28,7 @@ Add your screenshot here after your first run:
 - `asr.py`: teammate module exposing `transcribe(...) -> str`
 - `summarization.py`: teammate module exposing `summarize(...) -> str`
 - `requirements.txt`: Python dependencies
+- `packages.txt`: system dependency (`ffmpeg`) for Whisper runtime
 
 ## Run Locally
 
@@ -50,6 +55,14 @@ Expected behavior:
 - `summarize(text: str) -> str`
 
 Both functions must return plain strings.
+
+Optional parameters are supported when implemented:
+
+- `transcribe(audio_path: str, model_size: str = "base")`
+- `summarize(text: str, model_key: str = "bart")`
+
+If you have a fine-tuned summarization model, place it in `finetuned-bart-samsum/`
+at the project root. It will appear automatically in the UI as `bart-ft`.
 
 ## GitHub Setup (Team)
 
