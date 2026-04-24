@@ -2,19 +2,8 @@ import tempfile
 from pathlib import Path
 
 import streamlit as st
-
-# Team integration: use real modules when available, otherwise fall back to mocks.
-try:
-    from asr import transcribe  # type: ignore
-except Exception:
-    def transcribe(audio_path: str) -> str:
-        return f"[MOCK TRANSCRIPT] Audio received: {audio_path}. This is a sample transcript."
-
-try:
-    from summarization import summarize  # type: ignore
-except Exception:
-    def summarize(text: str) -> str:
-        return f"[MOCK SUMMARY] {text[:180]}..."
+from asr import transcribe
+from summarization import summarize
 
 
 st.set_page_config(page_title="Smart Notes Generator", page_icon="🎙️", layout="wide")
@@ -62,6 +51,6 @@ st.markdown(
     - `from asr import transcribe` should expose a function compatible with `transcribe(audio_path: str) -> str`
     - `from summarization import summarize` should expose a function compatible with `summarize(text: str) -> str`
 
-    If these files are not yet present, the app uses mock functions so the UI can still be tested.
+    In this scaffold, these imports are backed by simple mock modules and can be replaced by teammate implementations.
     """
 )
