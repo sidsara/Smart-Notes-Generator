@@ -22,6 +22,7 @@ Thumbs.db
 *.bin
 *.ckpt
 *.safetensors
+finetuned-bart-samsum/
 
 # Logs
 *.log
