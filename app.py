@@ -24,20 +24,20 @@ asr_model_size = st.sidebar.selectbox(
     index=1,
 )
 
-summary_model_options = ["bart", "distilbart"]
+summary_model_key = "bart-ft"
 if callable(available_models):
     try:
         detected = available_models()
-        if detected:
-            summary_model_options = detected
+        if "bart-ft" not in detected:
+            summary_model_key = detected[0] if detected else "bart"
+            st.sidebar.warning(
+                f"bart-ft not detected locally. Falling back to: {summary_model_key}"
+            )
     except Exception:
-        pass
+        summary_model_key = "bart"
+        st.sidebar.warning("Could not detect bart-ft. Falling back to bart.")
 
-summary_model_key = st.sidebar.selectbox(
-    "Summarization model",
-    options=summary_model_options,
-    index=summary_model_options.index("bart-ft") if "bart-ft" in summary_model_options else 0,
-)
+st.sidebar.caption(f"Summarization model in use: {summary_model_key}")
 
 uploaded_file = st.file_uploader(
     "Upload an audio file",
@@ -76,11 +76,23 @@ if run_pipeline:
 
         with left_col:
             st.subheader("Transcript")
-            st.text_area("", value=transcript, height=400, key="transcript")
+            st.text_area(
+                "Transcript output",
+                value=transcript,
+                height=400,
+                key="transcript",
+                label_visibility="collapsed",
+            )
 
         with right_col:
             st.subheader("Summary / Smart Notes")
-            st.text_area("", value=smart_notes, height=400, key="summary")
+            st.text_area(
+                "Summary output",
+                value=smart_notes,
+                height=400,
+                key="summary",
+                label_visibility="collapsed",
+            )
 
         if transcript.startswith("[ERROR]") or smart_notes.startswith("[ERROR]"):
             st.error("Pipeline finished with errors. Please check messages above.")

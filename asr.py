@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+from pathlib import Path
 
 import torch
 import whisper
@@ -26,9 +27,27 @@ def _ensure_ffmpeg_on_path() -> None:
     candidates.append(os.path.join(env_root, "Library", "bin"))
     candidates.append(py_dir)
 
+    # Try to infer conda root and all envs from CONDA_EXE (works even outside target env).
+    conda_exe = os.environ.get("CONDA_EXE")
+    if conda_exe:
+        conda_exe_path = Path(conda_exe)
+        conda_root = conda_exe_path.parent.parent
+        candidates.append(str(conda_root / "Library" / "bin"))
+        candidates.append(str(conda_root / "envs" / "study" / "Library" / "bin"))
+
+        envs_dir = conda_root / "envs"
+        if envs_dir.is_dir():
+            for env_dir in envs_dir.iterdir():
+                candidates.append(str(env_dir / "Library" / "bin"))
+
+    # Fallback for common Windows conda layout.
+    home = Path.home()
+    candidates.append(str(home / "miniconda3" / "envs" / "study" / "Library" / "bin"))
+
     to_prepend = []
     for candidate in candidates:
-        if os.path.isdir(candidate) and candidate not in path_parts:
+        ffmpeg_exe = os.path.join(candidate, "ffmpeg.exe")
+        if os.path.isdir(candidate) and os.path.exists(ffmpeg_exe) and candidate not in path_parts:
             to_prepend.append(candidate)
 
     if to_prepend:
