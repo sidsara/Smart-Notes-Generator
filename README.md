@@ -14,7 +14,7 @@ The Streamlit app displays transcript and summary side by side.
 You can select models from the sidebar:
 
 - Whisper ASR size: `tiny`, `base`, `small`, `medium`, `large`
-- Summarization model: `bart`, `distilbart` (and `bart-ft` if a local fine-tuned folder exists)
+- Summarization model: `bart-ft`
 
 Add your screenshot here after your first run:
 
