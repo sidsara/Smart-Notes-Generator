@@ -63,11 +63,14 @@ if run_pipeline:
             else:
                 transcript = transcribe(temp_audio_path)
 
-            summarize_signature = inspect.signature(summarize)
-            if "model_key" in summarize_signature.parameters:
-                smart_notes = summarize(transcript, model_key=summary_model_key)
+            if transcript.startswith("[ERROR]"):
+                smart_notes = "[ERROR] Summary skipped because transcription failed."
             else:
-                smart_notes = summarize(transcript)
+                summarize_signature = inspect.signature(summarize)
+                if "model_key" in summarize_signature.parameters:
+                    smart_notes = summarize(transcript, model_key=summary_model_key)
+                else:
+                    smart_notes = summarize(transcript)
 
         left_col, right_col = st.columns(2)
 
@@ -79,7 +82,10 @@ if run_pipeline:
             st.subheader("Summary / Smart Notes")
             st.text_area("", value=smart_notes, height=400, key="summary")
 
-        st.success("Pipeline completed.")
+        if transcript.startswith("[ERROR]") or smart_notes.startswith("[ERROR]"):
+            st.error("Pipeline finished with errors. Please check messages above.")
+        else:
+            st.success("Pipeline completed.")
 
 st.divider()
 st.markdown(
