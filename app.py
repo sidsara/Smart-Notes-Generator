@@ -448,49 +448,107 @@ if current_page == "smart_notes":
                 unsafe_allow_html=True,
             )
 
-    # ── Upload + Run ──────────────────────────────────────────────────────────
-    uploaded_file = st.file_uploader(
-        "Drop your audio file here",
-        type=["mp3", "wav", "m4a", "flac"],
-        help="Limit 200 MB per file • MP3, WAV, M4A, FLAC",
-    )
+    # ── Input Tabs ────────────────────────────────────────────────────────────
+    tab1, tab2 = st.tabs(["🎙️ From Audio", "✍️ From Text"])
 
-    if uploaded_file is not None:
-        st.markdown(
-            f'<div class="file-pill">📎 {uploaded_file.name}'
-            f' <span style="opacity:.6;">{_fmt_size(uploaded_file.size)}</span></div>',
-            unsafe_allow_html=True,
+    # ────────────────────────────────────────────────────────────────────────
+    # TAB 1: Audio Upload Pipeline
+    # ────────────────────────────────────────────────────────────────────────
+    with tab1:
+        uploaded_file = st.file_uploader(
+            "Drop your audio file here",
+            type=["mp3", "wav", "m4a", "flac"],
+            help="Limit 200 MB per file • MP3, WAV, M4A, FLAC",
+            key="audio_uploader",
         )
 
-    run_pipeline = st.button("🚀 Generate Smart Notes", type="primary", use_container_width=True)
+        if uploaded_file is not None:
+            st.markdown(
+                f'<div class="file-pill">📎 {uploaded_file.name}'
+                f' <span style="opacity:.6;">{_fmt_size(uploaded_file.size)}</span></div>',
+                unsafe_allow_html=True,
+            )
 
-    # ── Pipeline logic ────────────────────────────────────────────────────────
-    if run_pipeline:
-        if uploaded_file is None:
-            st.session_state["pipeline_status"] = "error"
-            st.session_state["transcript"]  = "[ERROR] Please upload an audio file first."
-            st.session_state["smart_notes"] = "[ERROR] Summary skipped because transcription failed."
-        else:
-            st.session_state["pipeline_status"] = "running"
-            st.session_state["last_file_name"]  = uploaded_file.name
-            st.session_state["last_file_size"]  = uploaded_file.size
+        run_audio_pipeline = st.button("🚀 Generate Smart Notes from Audio", type="primary", use_container_width=True, key="run_audio")
 
-            suffix = Path(uploaded_file.name).suffix or ".wav"
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(uploaded_file.read())
-                temp_audio_path = tmp.name
+        # ── Audio Pipeline logic ──────────────────────────────────────────────
+        if run_audio_pipeline:
+            if uploaded_file is None:
+                st.session_state["pipeline_status"] = "error"
+                st.session_state["transcript"]  = "[ERROR] Please upload an audio file first."
+                st.session_state["smart_notes"] = "[ERROR] Summary skipped because transcription failed."
+            else:
+                st.session_state["pipeline_status"] = "running"
+                st.session_state["last_file_name"]  = uploaded_file.name
+                st.session_state["last_file_size"]  = uploaded_file.size
 
-            with st.spinner("Running ASR + summarization…"):
-                transcribe_sig = inspect.signature(transcribe)
-                if "model_size" in transcribe_sig.parameters:
-                    transcript = transcribe(temp_audio_path, model_size=asr_model_size)
-                else:
-                    transcript = transcribe(temp_audio_path)
+                suffix = Path(uploaded_file.name).suffix or ".wav"
+                with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                    tmp.write(uploaded_file.read())
+                    temp_audio_path = tmp.name
 
-                if transcript.startswith("[ERROR]"):
-                    smart_notes = "[ERROR] Summary skipped because transcription failed."
-                    pipe_status = "error"
-                else:
+                with st.spinner("Running ASR + summarization…"):
+                    transcribe_sig = inspect.signature(transcribe)
+                    if "model_size" in transcribe_sig.parameters:
+                        transcript = transcribe(temp_audio_path, model_size=asr_model_size)
+                    else:
+                        transcript = transcribe(temp_audio_path)
+
+                    if transcript.startswith("[ERROR]"):
+                        smart_notes = "[ERROR] Summary skipped because transcription failed."
+                        pipe_status = "error"
+                    else:
+                        summarize_sig = inspect.signature(summarize)
+                        if "model_key" in summarize_sig.parameters:
+                            smart_notes = summarize(transcript, model_key=summary_model_key)
+                        else:
+                            smart_notes = summarize(transcript)
+                        pipe_status = "error" if smart_notes.startswith("[ERROR]") else "success"
+
+                st.session_state["transcript"]      = transcript
+                st.session_state["smart_notes"]     = smart_notes
+                st.session_state["pipeline_status"] = pipe_status
+
+                # Save to history on success
+                if pipe_status == "success":
+                    new_item = {
+                        "name":       uploaded_file.name,
+                        "transcript": transcript,
+                        "smart_notes": smart_notes,
+                        "timestamp":  datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    }
+                    st.session_state["history"].append(new_item)
+                    _save_history_to_disk(st.session_state["history"])  # Persist to disk
+                    print(f"[SUCCESS] Added to history: {uploaded_file.name}")
+
+    # ────────────────────────────────────────────────────────────────────────
+    # TAB 2: Direct Text Input
+    # ────────────────────────────────────────────────────────────────────────
+    with tab2:
+        st.markdown("**Paste or type your text below to generate smart notes:**")
+        input_text = st.text_area(
+            "Enter text to summarize",
+            height=150,
+            placeholder="Paste your lecture notes, article, or any text here...",
+            key="text_input",
+            label_visibility="collapsed",
+        )
+
+        run_text_pipeline = st.button("🚀 Generate Smart Notes from Text", type="primary", use_container_width=True, key="run_text")
+
+        # ── Text Pipeline logic ───────────────────────────────────────────────
+        if run_text_pipeline:
+            if not input_text.strip():
+                st.session_state["pipeline_status"] = "error"
+                st.session_state["transcript"]  = "[ERROR] Please enter some text first."
+                st.session_state["smart_notes"] = "[ERROR] Summary skipped because no text was provided."
+            else:
+                st.session_state["pipeline_status"] = "running"
+                st.session_state["last_file_name"]  = "Text Input"
+                st.session_state["last_file_size"]  = len(input_text)
+
+                with st.spinner("Generating summary…"):
+                    transcript = input_text
                     summarize_sig = inspect.signature(summarize)
                     if "model_key" in summarize_sig.parameters:
                         smart_notes = summarize(transcript, model_key=summary_model_key)
@@ -498,21 +556,21 @@ if current_page == "smart_notes":
                         smart_notes = summarize(transcript)
                     pipe_status = "error" if smart_notes.startswith("[ERROR]") else "success"
 
-            st.session_state["transcript"]      = transcript
-            st.session_state["smart_notes"]     = smart_notes
-            st.session_state["pipeline_status"] = pipe_status
+                st.session_state["transcript"]      = transcript
+                st.session_state["smart_notes"]     = smart_notes
+                st.session_state["pipeline_status"] = pipe_status
 
-            # Save to history on success
-            if pipe_status == "success":
-                new_item = {
-                    "name":       uploaded_file.name,
-                    "transcript": transcript,
-                    "smart_notes": smart_notes,
-                    "timestamp":  datetime.now().strftime("%Y-%m-%d %H:%M"),
-                }
-                st.session_state["history"].append(new_item)
-                _save_history_to_disk(st.session_state["history"])  # Persist to disk
-                print(f"[SUCCESS] Added to history: {uploaded_file.name}")
+                # Save to history on success
+                if pipe_status == "success":
+                    new_item = {
+                        "name":       "Text Input",
+                        "transcript": transcript,
+                        "smart_notes": smart_notes,
+                        "timestamp":  datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    }
+                    st.session_state["history"].append(new_item)
+                    _save_history_to_disk(st.session_state["history"])  # Persist to disk
+                    print(f"[SUCCESS] Added to history: Text Input")
 
     # ── Read state ────────────────────────────────────────────────────────────
     status         = st.session_state["pipeline_status"]
@@ -522,8 +580,8 @@ if current_page == "smart_notes":
     # ── Status banner ─────────────────────────────────────────────────────────
     _ICONS = {"idle":"🎯","running":"⚡","success":"✅","error":"❌"}
     _TEXTS = {
-        "idle":    "Ready — upload an audio file and click Generate.",
-        "running": "Processing your audio… grab a coffee ☕",
+        "idle":    "Ready — upload an audio file or enter text and click Generate.",
+        "running": "Processing… grab a coffee ☕",
         "success": "Pipeline completed successfully!",
         "error":   "Something went wrong. Check the messages below.",
     }
@@ -600,15 +658,15 @@ if current_page == "smart_notes":
 
     with left_col:
         st.markdown(
-            _panel("panel-purple", "badge-purple", "Whisper Output",
-                   "🎙️ Transcript", transcript_val, micro_html),
+            _panel("panel-purple", "badge-purple", "Input Text",
+                   "📝 Your Text / Transcript", transcript_val, micro_html),
             unsafe_allow_html=True,
         )
 
     with right_col:
         st.markdown(
             _panel("panel-green", "badge-green", "AI Summary",
-                   "📝 Summary / Smart Notes", notes_val, checklist_html, "green-bg"),
+                   "✨ Summary / Smart Notes", notes_val, checklist_html, "green-bg"),
             unsafe_allow_html=True,
         )
 
