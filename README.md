@@ -1,112 +1,86 @@
-# Smart Notes Generator
+# 📝 Smart Notes Generator: Audio to Impact
 
-Smart Notes Generator is an NLP mini-project that transforms speech into structured notes:
+**Smart Notes Generator** is an AI-powered workspace designed to transform spoken words into structured, actionable insights. By leveraging state-of-the-art NLP models, this platform handles the entire pipeline from raw audio to refined, smart summaries.
 
-1. Audio input (mp3, wav, m4a)
-2. Speech transcription (ASR)
-3. Automatic summary / smart notes generation
+## 🚀 The Pipeline
+1. **Audio Ingestion:** Supports `mp3`, `wav`, `m4a`, and `flac` formats.
+2. **Speech Transcription (ASR):** Powered by **OpenAI Whisper** for high-accuracy text extraction.
+3. **Fine-tuned Summarization:** Uses a specialized **BART** model fine-tuned on the **SAMSum** dataset (housed in `finetuned-bart-samsum/`) to generate concise, human-like notes.
 
-This project is built with **Python + Streamlit + openai-whisper + HuggingFace Transformers**.
+---
 
-## Demo Interface
+## 🎨 Interface & Demo
+The application is built with **Streamlit**, featuring a side-by-side view of the full transcript and the generated smart notes.
 
-The Streamlit app displays transcript and summary side by side.
-You can select models from the sidebar:
-
-- Whisper ASR size: `tiny`, `base`, `small`, `medium`, `large`
-- Summarization model: `bart-ft`
-
-Add your screenshot here after your first run:
+### Model Settings
+Users can configure the pipeline directly from the sidebar:
+* **ASR Model (Whisper):** Select from `tiny`, `base`, `small`, `medium`, or `large` sizes.
+* **Summarization:** Features our custom **bart-ft** (Fine-Tuned) model for superior summary quality compared to vanilla models.
 
 ![App Screenshot](assets/app-screenshot.png)
 
-> Create the `assets/` folder and place your screenshot as `app-screenshot.png`.
 
-## Project Structure
+---
 
-- `app.py`: Streamlit web app
-- `asr.py`: teammate module exposing `transcribe(...) -> str`
-- `summarization.py`: teammate module exposing `summarize(...) -> str`
-- `requirements.txt`: Python dependencies
-- `packages.txt`: system dependency (`ffmpeg`) for Whisper runtime
+## 🛠️ Project Structure
+- `app.py`: The main Streamlit interface and UI logic.
+- `asr.py`: Module handling the Whisper ASR engine (`transcribe(...)`).
+- `summarization.py`: Module managing the BART model and inference (`summarize(...)`).
+- `finetuned-bart-samsum/`: Local directory containing the weights for the fine-tuned summarization model.
+- `requirements.txt`: Python dependencies (PyTorch, Transformers, OpenAI-Whisper, etc.).
+- `packages.txt`: System-level dependencies (`ffmpeg`) required for Whisper runtime.
 
-## Run Locally
+---
 
+## 💻 Local Setup
+
+1. **Environment Setup:**
 ```bash
 conda activate study
 pip install -r requirements.txt
-streamlit run app.py
 ```
 
+2. **GPU Acceleration:**
+The pipeline is optimized for CUDA. If an NVIDIA GPU is detected, the models will automatically load onto `cuda` for significantly faster inference.
+
+3. **Run the App:**
+```bash
+streamlit run app.py
+```
 Then open the local URL shown in the terminal (usually `http://localhost:8501`).
 
-## Integration Contract
+---
 
-The app imports:
+## 🤝 Integration Contract
+The `app.py` interface imports the following functions:
 
 ```python
 from asr import transcribe
 from summarization import summarize
+
+# ASR behavior:
+# transcribe(audio_path: str, model_size: str = "base") -> str
+
+# Summarization behavior:
+# summarize(text: str, model_key: str = "bart-ft") -> str
 ```
 
-Expected behavior:
+---
 
-- `transcribe(audio_path: str) -> str`
-- `summarize(text: str) -> str`
+## ☁️ Deployment
+This project is configured for **Streamlit Community Cloud**:
+1. Push the code to your GitHub repository.
+2. Connect your GitHub account to [share.streamlit.io](https://share.streamlit.io).
+3. Ensure `packages.txt` is present so the cloud environment installs `ffmpeg` for audio processing.
 
-Both functions must return plain strings.
+---
 
-Optional parameters are supported when implemented:
-
-- `transcribe(audio_path: str, model_size: str = "base")`
-- `summarize(text: str, model_key: str = "bart")`
-
-If you have a fine-tuned summarization model, place it in `finetuned-bart-samsum/`
-at the project root. It will appear automatically in the UI as `bart-ft`.
-
-## GitHub Setup (Team)
-
-1. Create a new repository on GitHub (for example: `smart-notes-generator`).
-2. In your project folder:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: Streamlit app scaffold"
-git branch -M main
-git remote add origin https://github.com/<your-username>/smart-notes-generator.git
-git push -u origin main
-```
-
-3. Add collaborators:
-   - GitHub repo -> **Settings** -> **Collaborators and teams** -> **Add people**
-   - Invite your 3 teammates by username/email.
-
-## Deploy on Streamlit Community Cloud
-
-1. Push latest code to GitHub.
-2. Go to [https://share.streamlit.io](https://share.streamlit.io).
-3. Click **New app**.
-4. Select your repo, branch `main`, and main file `app.py`.
-5. Click **Deploy**.
-
-This repository already includes `packages.txt` with `ffmpeg` for Whisper/audio runtime compatibility.
-
-## Report Assembly (Final Deliverable)
-
-Include the following sections in your final report:
-
-1. Introduction and problem statement
-2. Method overview and pipeline (audio -> transcript -> summary)
-3. ASR module summary (teammate section)
-4. Summarization module summary (teammate section)
-5. Streamlit app, GitHub workflow, and deployment (your section)
-6. Results and qualitative examples
-7. Conclusion and possible improvements
-
-### Suggested Improvements
-
-- Better punctuation restoration and speaker diarization
-- Domain-adapted summarization model
-- Multilingual support
-- Evaluation metrics (WER for ASR, ROUGE/BERTScore for summaries)
+## 📄 Final Report Assembly
+The following sections are required for the final deliverable:
+1. **Introduction:** Problem statement and project goals.
+2. **Methodology:** Pipeline overview (Audio → Whisper ASR → BART Summarization).
+3. **ASR Module:** Implementation details and model size trade-offs.
+4. **Summarization Module:** Details on the BART fine-tuning process and the SAMSum dataset.
+5. **Deployment & Workflow:** GitHub collaboration and Streamlit Cloud setup.
+6. **Results:** Qualitative examples of transcripts and generated notes.
+7. **Future Scope:** Improvements like speaker diarization and evaluation metrics (ROUGE/BERTScore).
