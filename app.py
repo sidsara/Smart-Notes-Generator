@@ -1,6 +1,7 @@
 import base64
 import html as html_lib
 import inspect
+import json
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -20,7 +21,33 @@ st.set_page_config(page_title="Smart Notes Generator", page_icon="🎙️", layo
 
 PROJECT_DIR = Path(__file__).parent
 STICKERS_DIR = PROJECT_DIR / "stickers"
+HISTORY_FILE = PROJECT_DIR / ".smart_notes_history.json"
 
+
+# ── History persistence helpers ────────────────────────────────────────────────
+def _load_history_from_disk() -> list:
+    """Load history from persistent JSON file."""
+    if HISTORY_FILE.exists():
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[ERROR] Failed to load history from disk: {e}")
+            return []
+    return []
+
+
+def _save_history_to_disk(history: list) -> None:
+    """Save history to persistent JSON file."""
+    try:
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(history, f, indent=2)
+        print(f"[INFO] History saved to disk ({len(history)} items)")
+    except Exception as e:
+        print(f"[ERROR] Failed to save history to disk: {e}")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 
 for key, value in {
     "transcript": "",
@@ -28,7 +55,7 @@ for key, value in {
     "pipeline_status": "idle",
     "last_file_name": "",
     "last_file_size": 0,
-    "history": [],          # list of {name, transcript, smart_notes, timestamp}
+    "history": _load_history_from_disk(),  # Load persisted history on app start
 }.items():
     if key not in st.session_state:
         st.session_state[key] = value
@@ -67,8 +94,10 @@ def _fmt_size(n: int) -> str:
     return f"{n/1048576:.1f} MB"
 
 
-# ── Current page (via query params so links work) ──────────────────────────────
-current_page = st.query_params.get("page", "smart_notes")
+# ── Current page (via session state for reliable navigation) ──────────────────
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = st.query_params.get("page", "smart_notes")
+current_page = st.session_state["current_page"]
 
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
@@ -342,18 +371,19 @@ asr_model_size = st.sidebar.selectbox(
 )
 st.sidebar.caption(f"Summarization model: **{summary_model_key}**")
 
-# Navigation — HTML links with query params
+# Navigation — Use Streamlit's native page linking (stays in same tab)
 st.sidebar.markdown('<p class="side-section">📌 Navigation</p>', unsafe_allow_html=True)
-nav_items = [
+
+# Clickable text labels for navigation
+nav_labels = [
     ("smart_notes", "📄 Smart Notes"),
     ("history",     "🗂️ Notes History"),
     ("help",        "❔ Help & Docs"),
 ]
-nav_html = ""
-for pid, label in nav_items:
-    cls = "nav-link active" if current_page == pid else "nav-link"
-    nav_html += f'<a href="?page={pid}" class="{cls}">{label}</a>'
-st.sidebar.markdown(nav_html, unsafe_allow_html=True)
+for page_id, label in nav_labels:
+    if st.sidebar.button(label, key=f"nav_{page_id}", use_container_width=True):
+        st.session_state["current_page"] = page_id
+        st.rerun()
 
 # Sidebar sticker card
 focus_uri = _sticker_uri("focus.png") or _sticker_uri("notes (3).png")
@@ -474,12 +504,15 @@ if current_page == "smart_notes":
 
             # Save to history on success
             if pipe_status == "success":
-                st.session_state["history"].append({
+                new_item = {
                     "name":       uploaded_file.name,
                     "transcript": transcript,
                     "smart_notes": smart_notes,
                     "timestamp":  datetime.now().strftime("%Y-%m-%d %H:%M"),
-                })
+                }
+                st.session_state["history"].append(new_item)
+                _save_history_to_disk(st.session_state["history"])  # Persist to disk
+                print(f"[SUCCESS] Added to history: {uploaded_file.name}")
 
     # ── Read state ────────────────────────────────────────────────────────────
     status         = st.session_state["pipeline_status"]
@@ -657,6 +690,8 @@ elif current_page == "history":
 
         if st.button("🗑️ Clear history", type="primary"):
             st.session_state["history"] = []
+            _save_history_to_disk([])  # Clear disk history as well
+            print("[INFO] History cleared")
             st.rerun()
 
 
@@ -673,6 +708,7 @@ elif current_page == "help":
         unsafe_allow_html=True,
     )
 
+    # Section 1: How it works
     st.markdown(
         """
         <div class="card">
@@ -686,7 +722,15 @@ elif current_page == "help":
                     <li>Both the full transcript and the smart notes appear in the result panels.</li>
                 </ol>
             </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    # Section 2: Whisper model
+    st.markdown(
+        """
+        <div class="card">
             <div class="help-section">
                 <h3>🎙️ Choosing a Whisper model</h3>
                 <p>Use the <em>ASR model (Whisper)</em> dropdown in the sidebar:</p>
@@ -696,14 +740,28 @@ elif current_page == "help":
                     <li><strong>large</strong> — highest accuracy, slowest (requires a GPU for comfort).</li>
                 </ul>
             </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    # Section 3: Notes History
+    st.markdown(
+        """
+        <div class="card">
             <div class="help-section">
                 <h3>🗂️ Notes History</h3>
-                <p>Every successful pipeline run is saved automatically to the
-                <a href="?page=history" style="color:#6347c7;font-weight:700;">Notes History</a> page
-                for the duration of your session. History is cleared when you close the browser tab.</p>
+                <p>Every successful pipeline run is saved automatically to the Notes History page for the duration of your session. History is cleared when you close the browser tab.</p>
             </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    # Section 4: Integration contract
+    st.markdown(
+        """
+        <div class="card">
             <div class="help-section">
                 <h3>⚙️ Integration contract</h3>
                 <p>The app expects two Python modules in the same directory:</p>
@@ -711,11 +769,17 @@ elif current_page == "help":
                     <li><code>asr.py</code> — exposes <code>transcribe(audio_path: str) → str</code></li>
                     <li><code>summarization.py</code> — exposes <code>summarize(text: str) → str</code></li>
                 </ul>
-                <p>Both functions may optionally accept extra keyword arguments
-                (<code>model_size</code>, <code>model_key</code>) that the app will
-                pass automatically when detected.</p>
+                <p>Both functions may optionally accept extra keyword arguments (<code>model_size</code>, <code>model_key</code>) that the app will pass automatically when detected.</p>
             </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
+    # Section 5: Troubleshooting
+    st.markdown(
+        """
+        <div class="card">
             <div class="help-section">
                 <h3>🐛 Troubleshooting</h3>
                 <ul>
