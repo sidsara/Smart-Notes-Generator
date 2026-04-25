@@ -1,7 +1,7 @@
 import os
 
 import torch
-from transformers import pipeline
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 MODELS = {
     "bart": "facebook/bart-large-cnn",
@@ -21,6 +21,7 @@ MIN_WORDS_TO_SUMMARIZE = 30
 
 _PIPELINES = {}
 DEVICE = 0 if torch.cuda.is_available() else -1
+_DEVICE_STR = "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def available_models() -> list:
@@ -34,12 +35,11 @@ def _get_pipeline(model_key: str):
 
     if model_key not in _PIPELINES:
         print(f"[summarization] loading model: {MODELS[model_key]}")
-        _PIPELINES[model_key] = pipeline(
-            "summarization",
-            model=MODELS[model_key],
-            device=DEVICE,
-            truncation=True,
-        )
+        tokenizer = AutoTokenizer.from_pretrained(MODELS[model_key])
+        model = AutoModelForSeq2SeqLM.from_pretrained(MODELS[model_key])
+        model = model.to(_DEVICE_STR)
+        model.eval()
+        _PIPELINES[model_key] = (tokenizer, model)
 
     return _PIPELINES[model_key]
 
@@ -61,20 +61,31 @@ def summarize(text: str, model_key: str = DEFAULT_MODEL) -> str:
         return text.strip()
 
     try:
-        summarizer = _get_pipeline(model_key)
+        tokenizer, model = _get_pipeline(model_key)
         max_length, min_length = _compute_lengths(text)
 
-        result = summarizer(
+        inputs = tokenizer(
             text,
-            max_length=max_length,
-            min_length=min_length,
-            num_beams=6,
-            length_penalty=2.0,
-            no_repeat_ngram_size=3,
-            early_stopping=True,
-            do_sample=False,
+            return_tensors="pt",
+            truncation=True,
+            max_length=1024,
         )
-        return result[0]["summary_text"]
+        inputs = {k: v.to(_DEVICE_STR) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            output_ids = model.generate(
+                **inputs,
+                max_new_tokens=max_length,
+                min_new_tokens=min_length,
+                num_beams=6,
+                length_penalty=2.0,
+                no_repeat_ngram_size=3,
+                early_stopping=True,
+                do_sample=False,
+            )
+
+        summary = tokenizer.decode(output_ids[0], skip_special_tokens=True)
+        return summary.strip()
     except Exception as exc:
         return f"[ERROR] {exc}"
 
